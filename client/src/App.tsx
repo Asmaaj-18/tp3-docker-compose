@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type Item = {
   _id: string;
@@ -10,6 +10,7 @@ function App() {
   const [items, setItems] = useState<Item[]>([]);
   const [name, setName] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [filter, setFilter] = useState("all");
 
   const API_URL = "http://localhost:5000/api";
 
@@ -24,7 +25,9 @@ function App() {
 
     await fetch(`${API_URL}/items`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({ name }),
     });
 
@@ -33,22 +36,23 @@ function App() {
   };
 
   const deleteItem = async (id: string) => {
-    await fetch(`${API_URL}/items/${id}`, { method: "DELETE" });
+    await fetch(`${API_URL}/items/${id}`, {
+      method: "DELETE",
+    });
+
     fetchItems();
   };
 
-  const updateStatus = async (item: Item) => {
-    const next =
-      item.status === "todo"
-        ? "doing"
-        : item.status === "doing"
-        ? "done"
-        : "todo";
-
-    await fetch(`${API_URL}/items/${item._id}`, {
+  const updateStatus = async (
+    id: string,
+    status: "todo" | "doing" | "done"
+  ) => {
+    await fetch(`${API_URL}/items/${id}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: next }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ status }),
     });
 
     fetchItems();
@@ -57,7 +61,9 @@ function App() {
   const updateName = async (id: string) => {
     await fetch(`${API_URL}/items/${id}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({ name }),
     });
 
@@ -70,82 +76,163 @@ function App() {
     fetchItems();
   }, []);
 
-  const getStatusStyle = (status: string) => {
-    if (status === "todo") return { background: "#ff9800" };
-    if (status === "doing") return { background: "#2196f3" };
-    return { background: "#4caf50" };
+  const filteredItems = useMemo(() => {
+    if (filter === "all") return items;
+    return items.filter((item) => item.status === filter);
+  }, [items, filter]);
+
+  const stats = {
+    total: items.length,
+    todo: items.filter((i) => i.status === "todo").length,
+    doing: items.filter((i) => i.status === "doing").length,
+    done: items.filter((i) => i.status === "done").length,
   };
 
   return (
     <div style={styles.page}>
-      <div style={styles.card}>
-        <h2 style={styles.title}>🚀 Smart To-Do App</h2>
+      <div style={styles.container}>
+        <div style={styles.header}>
+          <h1 style={styles.title}>✨ Smart Task Manager</h1>
+          <p style={styles.subtitle}>
+            Organisez vos tâches efficacement
+          </p>
+        </div>
 
-        <div style={styles.inputBox}>
+        <div style={styles.statsContainer}>
+          <div style={styles.statCard}>
+            <h3>{stats.total}</h3>
+            <p>Total</p>
+          </div>
+
+          <div style={styles.statCard}>
+            <h3>{stats.todo}</h3>
+            <p>À faire</p>
+          </div>
+
+          <div style={styles.statCard}>
+            <h3>{stats.doing}</h3>
+            <p>En cours</p>
+          </div>
+
+          <div style={styles.statCard}>
+            <h3>{stats.done}</h3>
+            <p>Terminées</p>
+          </div>
+        </div>
+
+        <div style={styles.inputContainer}>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Ajouter une tâche..."
+            placeholder="Ajouter une nouvelle tâche..."
             style={styles.input}
           />
-          <button onClick={addItem} style={styles.addBtn}>
+
+          <button onClick={addItem} style={styles.addButton}>
             ➕ Ajouter
           </button>
         </div>
 
-        <ul style={styles.list}>
-          {items.map((item) => (
-            <li key={item._id} style={styles.item}>
-              {editingId === item._id ? (
-                <>
-                  <input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    style={styles.input}
-                  />
-                  <button onClick={() => updateName(item._id)}>💾</button>
-                </>
-              ) : (
-                <>
-                  <span style={styles.text}>{item.name}</span>
+        <div style={styles.filters}>
+          <button
+            style={filter === "all" ? styles.activeFilter : styles.filterBtn}
+            onClick={() => setFilter("all")}
+          >
+            Toutes
+          </button>
 
-                  <span
-                    style={{
-                      ...styles.badge,
-                      ...getStatusStyle(item.status),
-                    }}
-                    onClick={() => updateStatus(item)}
-                  >
-                    {item.status === "todo"
-                      ? "🕒 À faire"
-                      : item.status === "doing"
-                      ? "⚡ En cours"
-                      : "✅ Fait"}
-                  </span>
+          <button
+            style={filter === "todo" ? styles.activeFilter : styles.filterBtn}
+            onClick={() => setFilter("todo")}
+          >
+            🕒 À faire
+          </button>
 
-                  <div>
+          <button
+            style={filter === "doing" ? styles.activeFilter : styles.filterBtn}
+            onClick={() => setFilter("doing")}
+          >
+            ⚡ En cours
+          </button>
+
+          <button
+            style={filter === "done" ? styles.activeFilter : styles.filterBtn}
+            onClick={() => setFilter("done")}
+          >
+            ✅ Fait
+          </button>
+        </div>
+
+        <div style={styles.tasksContainer}>
+          {filteredItems.map((item) => (
+            <div key={item._id} style={styles.taskCard}>
+              <div style={styles.taskContent}>
+                {editingId === item._id ? (
+                  <div style={styles.editContainer}>
+                    <input
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      style={styles.editInput}
+                    />
+
                     <button
-                      onClick={() => {
-                        setEditingId(item._id);
-                        setName(item.name);
-                      }}
-                      style={styles.editBtn}
+                      style={styles.saveBtn}
+                      onClick={() => updateName(item._id)}
                     >
-                      ✏️
-                    </button>
-
-                    <button
-                      onClick={() => deleteItem(item._id)}
-                      style={styles.deleteBtn}
-                    >
-                      🗑
+                      💾
                     </button>
                   </div>
-                </>
-              )}
-            </li>
+                ) : (
+                  <>
+                    <h3 style={styles.taskTitle}>{item.name}</h3>
+
+                    <select
+                      value={item.status}
+                      onChange={(e) =>
+                        updateStatus(
+                          item._id,
+                          e.target.value as "todo" | "doing" | "done"
+                        )
+                      }
+                      style={{
+                        ...styles.select,
+                        background:
+                          item.status === "todo"
+                            ? "#fff3cd"
+                            : item.status === "doing"
+                            ? "#dbeafe"
+                            : "#dcfce7",
+                      }}
+                    >
+                      <option value="todo">🕒 À faire</option>
+                      <option value="doing">⚡ En cours</option>
+                      <option value="done">✅ Fait</option>
+                    </select>
+                  </>
+                )}
+              </div>
+
+              <div style={styles.actions}>
+                <button
+                  style={styles.editBtn}
+                  onClick={() => {
+                    setEditingId(item._id);
+                    setName(item.name);
+                  }}
+                >
+                  ✏️
+                </button>
+
+                <button
+                  style={styles.deleteBtn}
+                  onClick={() => deleteItem(item._id)}
+                >
+                  🗑
+                </button>
+              </div>
+            </div>
           ))}
-        </ul>
+        </div>
       </div>
     </div>
   );
@@ -153,74 +240,170 @@ function App() {
 
 const styles = {
   page: {
-    background: "#eef2f7",
+    background:
+      "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
     minHeight: "100vh",
-    paddingTop: "40px",
+    padding: "40px 20px",
+    fontFamily: "Arial, sans-serif",
   },
-  card: {
-    maxWidth: "550px",
+
+  container: {
+    maxWidth: "850px",
     margin: "auto",
-    background: "#fff",
-    padding: "25px",
-    borderRadius: "14px",
+  },
+
+  header: {
+    textAlign: "center" as const,
+    color: "white",
+    marginBottom: "30px",
+  },
+
+  title: {
+    fontSize: "42px",
+    marginBottom: "10px",
+  },
+
+  subtitle: {
+    opacity: 0.9,
+    fontSize: "18px",
+  },
+
+  statsContainer: {
+    display: "grid",
+    gridTemplateColumns: "repeat(4, 1fr)",
+    gap: "15px",
+    marginBottom: "25px",
+  },
+
+  statCard: {
+    background: "white",
+    borderRadius: "16px",
+    padding: "20px",
+    textAlign: "center" as const,
     boxShadow: "0 5px 20px rgba(0,0,0,0.1)",
   },
-  title: {
-    textAlign: "center" as const,
-    fontSize: "22px",
-    marginBottom: "20px",
+
+  inputContainer: {
+    display: "flex",
+    gap: "12px",
+    marginBottom: "25px",
   },
-  inputBox: {
+
+  input: {
+    flex: 1,
+    padding: "16px",
+    borderRadius: "14px",
+    border: "none",
+    fontSize: "16px",
+  },
+
+  addButton: {
+    background: "#10b981",
+    color: "white",
+    border: "none",
+    borderRadius: "14px",
+    padding: "16px 22px",
+    cursor: "pointer",
+    fontWeight: "bold",
+    fontSize: "15px",
+  },
+
+  filters: {
     display: "flex",
     gap: "10px",
-    marginBottom: "20px",
+    marginBottom: "25px",
+    flexWrap: "wrap" as const,
   },
-  input: {
+
+  filterBtn: {
+    background: "white",
+    border: "none",
+    padding: "10px 18px",
+    borderRadius: "10px",
+    cursor: "pointer",
+  },
+
+  activeFilter: {
+    background: "#111827",
+    color: "white",
+    border: "none",
+    padding: "10px 18px",
+    borderRadius: "10px",
+    cursor: "pointer",
+  },
+
+  tasksContainer: {
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: "15px",
+  },
+
+  taskCard: {
+    background: "white",
+    borderRadius: "16px",
+    padding: "18px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    boxShadow: "0 5px 20px rgba(0,0,0,0.08)",
+  },
+
+  taskContent: {
+    flex: 1,
+  },
+
+  taskTitle: {
+    marginBottom: "10px",
+  },
+
+  select: {
+    padding: "8px 12px",
+    borderRadius: "8px",
+    border: "none",
+    fontWeight: "bold",
+  },
+
+  actions: {
+    display: "flex",
+    gap: "8px",
+  },
+
+  editBtn: {
+    background: "#3b82f6",
+    color: "white",
+    border: "none",
+    borderRadius: "8px",
+    padding: "8px 12px",
+    cursor: "pointer",
+  },
+
+  deleteBtn: {
+    background: "#ef4444",
+    color: "white",
+    border: "none",
+    borderRadius: "8px",
+    padding: "8px 12px",
+    cursor: "pointer",
+  },
+
+  editContainer: {
+    display: "flex",
+    gap: "10px",
+  },
+
+  editInput: {
     flex: 1,
     padding: "10px",
     borderRadius: "8px",
     border: "1px solid #ccc",
   },
-  addBtn: {
-    background: "#4caf50",
+
+  saveBtn: {
+    background: "#10b981",
     color: "white",
     border: "none",
-    padding: "10px",
     borderRadius: "8px",
-    cursor: "pointer",
-  },
-  list: {
-    listStyle: "none",
-    padding: 0,
-  },
-  item: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    background: "#f9f9f9",
-    padding: "10px",
-    marginBottom: "10px",
-    borderRadius: "8px",
-  },
-  text: {
-    flex: 1,
-  },
-  badge: {
-    color: "white",
-    padding: "5px 10px",
-    borderRadius: "8px",
-    cursor: "pointer",
-    marginRight: "10px",
-  },
-  editBtn: {
-    marginRight: "5px",
-  },
-  deleteBtn: {
-    background: "#ff4d4f",
-    color: "white",
-    border: "none",
-    borderRadius: "6px",
-    padding: "5px 8px",
+    padding: "8px 12px",
     cursor: "pointer",
   },
 };

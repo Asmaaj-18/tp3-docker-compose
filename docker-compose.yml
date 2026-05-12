@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   api:
     build: ./api
@@ -22,10 +20,7 @@ services:
       - database_data:/data/db
 
   client:
-    client:
-    build:
-    context: ./client
-    dockerfile: Dockerfile.prod
+    build: ./client
     container_name: client
     ports:
       - "5173:5173"
